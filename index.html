@@ -17,7 +17,7 @@
   .board-wrap { position: relative; margin: 8px auto 16px; max-width: 420px; }
   .board-wrap img { width: 100%; border-radius: 18px; display: block; box-shadow: 0 20px 50px rgba(0,0,0,.75); }
   .peg {
-    position: absolute; width: 22px; height: 22px;
+    position: absolute; width: 20px; height: 20px;
     background-size: cover; background-repeat: no-repeat; background-position: center;
     pointer-events: none; z-index: 4; border-radius: 50%;
     transform: translate(-50%, -50%);
@@ -100,21 +100,27 @@ const deck = () => R.flatMap(r => S.map(s => r+s));
 const sort = h => h.slice().sort((a,b) => ord[a[0]]-ord[b[0]]);
 const cVal = c => val[c[0]];
 
+// Start zone sits in the lower card-holder area. Tracks begin above it.
+const START = [
+  { x: 32, y: 88 },  // You start
+  { x: 42, y: 88 }   // Grok start
+];
 const TRACKS = [
-  { x: 28, yStart: 72, yEnd: 18 },
-  { x: 50, yStart: 18, yEnd: 72 },
-  { x: 72, yStart: 72, yEnd: 18 }
+  { x: 28, yStart: 68, yEnd: 16 },
+  { x: 50, yStart: 16, yEnd: 68 },
+  { x: 72, yStart: 68, yEnd: 16 }
 ];
 const HOLES_PER_TRACK = 40;
 
-function pos(score, offsetX = 0) {
-  const s = Math.max(0, Math.min(score, 120));
-  const trackIdx = Math.min(2, Math.floor(s / HOLES_PER_TRACK));
-  const hole = s % HOLES_PER_TRACK;
+function pos(score, isGrok) {
+  if (score <= 0) return { left: START[isGrok?1:0].x + '%', top: START[isGrok?1:0].y + '%' };
+  const s = Math.min(score, 120);
+  const trackIdx = Math.min(2, Math.floor((s - 1) / HOLES_PER_TRACK));
+  const hole = (s - 1) % HOLES_PER_TRACK;
   const t = TRACKS[trackIdx];
   const progress = hole / (HOLES_PER_TRACK - 1);
   const y = t.yStart + (t.yEnd - t.yStart) * progress;
-  return { left: (t.x + offsetX) + '%', top: y + '%' };
+  return { left: t.x + '%', top: y + '%' };
 }
 
 function animatePeg(pegEl, target) {
@@ -125,8 +131,8 @@ function animatePeg(pegEl, target) {
 }
 
 function updatePegs() {
-  animatePeg(el.pYou, pos(st.scores.player, 0));
-  animatePeg(el.pGrok, pos(st.scores.grok, 1.2));
+  animatePeg(el.pYou, pos(st.scores.player, false));
+  animatePeg(el.pGrok, pos(st.scores.grok, true));
 }
 
 function addPts(who, pts, reason) {
