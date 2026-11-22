@@ -16,8 +16,17 @@
   select { background: rgba(0,0,0,.55); color: #f7f1e8; border: 1px solid rgba(240,215,140,.3); padding: 10px 18px; border-radius: 12px; font-size: .95rem; cursor: pointer; outline: none; }
   .board-wrap { position: relative; margin: 8px auto 16px; max-width: 420px; }
   .board-wrap img { width: 100%; border-radius: 18px; display: block; box-shadow: 0 20px 50px rgba(0,0,0,.75); }
-  .peg { position: absolute; width: 18px; height: 48px; background-size: contain; background-repeat: no-repeat; background-position: center bottom; pointer-events: none; transition: left .45s cubic-bezier(.22,.8,.3,1), top .45s cubic-bezier(.22,.8,.3,1); filter: drop-shadow(0 3px 4px rgba(0,0,0,.7)); z-index: 4; transform: translate(-50%, -80%); }
-  .peg.you { background-image: url('peg_brass.jpg'); } .peg.grok { background-image: url('peg_steel.jpg'); }
+  .peg {
+    position: absolute; width: 18px; height: 48px;
+    background-size: contain; background-repeat: no-repeat; background-position: center bottom;
+    pointer-events: none; z-index: 4;
+    transform: translate(-50%, -80%);
+    transition: left .55s cubic-bezier(.25,.1,.25,1), top .55s cubic-bezier(.25,.1,.25,1), transform .18s ease-out;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,.7));
+  }
+  .peg.moving { transform: translate(-50%, -95%) scale(1.08); filter: drop-shadow(0 8px 8px rgba(0,0,0,.5)); }
+  .peg.you { background-image: url('peg_brass.jpg'); }
+  .peg.grok { background-image: url('peg_steel.jpg'); }
   .count { text-align: center; font-size: 2.2rem; font-weight: 600; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.8); margin: 4px 0 12px; }
   .area { display: grid; grid-template-columns: 120px 1fr 120px; gap: 16px; }
   .panel { background: rgba(0,0,0,.4); border-radius: 14px; padding: 12px 8px; text-align: center; }
@@ -85,19 +94,17 @@ const el = { ps:$('ps'), gs:$('gs'), board:$('board'), boardSel:$('boardSel'), p
 
 let st = { scores:{player:0,grok:0}, hand:[], grokHand:[], crib:[], starter:null, phase:'discard', pegCount:0, pegSeq:[], turn:'player', dealer:'player' };
 const sel = new Set();
-let pegRAF = 0;
+const lastPos = { player: null, grok: null };
 
 const shuf = a => { for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
 const deck = () => R.flatMap(r => S.map(s => r+s));
 const sort = h => h.slice().sort((a,b) => ord[a[0]]-ord[b[0]]);
 const cVal = c => val[c[0]];
 
-// Three vertical tracks on the luxury-style board. ~40 holes each, snaking up then down.
-// Track centers (as % of board width) and vertical range.
 const TRACKS = [
-  { x: 28, yStart: 72, yEnd: 18 },  // left track, bottom to top
-  { x: 50, yStart: 18, yEnd: 72 },  // middle track, top to bottom
-  { x: 72, yStart: 72, yEnd: 18 }   // right track, bottom to top
+  { x: 28, yStart: 72, yEnd: 18 },
+  { x: 50, yStart: 18, yEnd: 72 },
+  { x: 72, yStart: 72, yEnd: 18 }
 ];
 const HOLES_PER_TRACK = 40;
 
@@ -110,14 +117,19 @@ function pos(score, offsetX = 0) {
   const y = t.yStart + (t.yEnd - t.yStart) * progress;
   return { left: (t.x + offsetX) + '%', top: y + '%' };
 }
+
+function animatePeg(pegEl, target, key) {
+  const prev = lastPos[key];
+  lastPos[key] = target;
+  pegEl.classList.add('moving');
+  pegEl.style.left = target.left;
+  pegEl.style.top = target.top;
+  setTimeout(() => pegEl.classList.remove('moving'), 520);
+}
+
 function updatePegs() {
-  cancelAnimationFrame(pegRAF);
-  pegRAF = requestAnimationFrame(() => {
-    const y = pos(st.scores.player, 0);
-    const g = pos(st.scores.grok, 1.5);
-    el.pYou.style.left = y.left; el.pYou.style.top = y.top;
-    el.pGrok.style.left = g.left; el.pGrok.style.top = g.top;
-  });
+  animatePeg(el.pYou, pos(st.scores.player, 0), 'player');
+  animatePeg(el.pGrok, pos(st.scores.grok, 1.5), 'grok');
 }
 
 function addPts(who, pts, reason) {
