@@ -17,16 +17,16 @@
   .board-wrap { position: relative; margin: 8px auto 16px; max-width: 420px; }
   .board-wrap img { width: 100%; border-radius: 18px; display: block; box-shadow: 0 20px 50px rgba(0,0,0,.75); }
   .peg {
-    position: absolute; width: 18px; height: 48px;
-    background-size: contain; background-repeat: no-repeat; background-position: center bottom;
-    pointer-events: none; z-index: 4;
-    transform: translate(-50%, -80%);
-    transition: left .55s cubic-bezier(.25,.1,.25,1), top .55s cubic-bezier(.25,.1,.25,1), transform .18s ease-out;
-    filter: drop-shadow(0 3px 4px rgba(0,0,0,.7));
+    position: absolute; width: 22px; height: 22px;
+    background-size: cover; background-repeat: no-repeat; background-position: center;
+    pointer-events: none; z-index: 4; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: left .5s cubic-bezier(.25,.1,.25,1), top .5s cubic-bezier(.25,.1,.25,1), transform .15s ease-out;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,.6));
   }
-  .peg.moving { transform: translate(-50%, -95%) scale(1.08); filter: drop-shadow(0 8px 8px rgba(0,0,0,.5)); }
-  .peg.you { background-image: url('peg_brass.jpg'); }
-  .peg.grok { background-image: url('peg_steel.jpg'); }
+  .peg.moving { transform: translate(-50%, -60%) scale(1.12); }
+  .peg.you { background-image: url('peg_brass_top.jpg'); }
+  .peg.grok { background-image: url('peg_steel_top.jpg'); }
   .count { text-align: center; font-size: 2.2rem; font-weight: 600; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.8); margin: 4px 0 12px; }
   .area { display: grid; grid-template-columns: 120px 1fr 120px; gap: 16px; }
   .panel { background: rgba(0,0,0,.4); border-radius: 14px; padding: 12px 8px; text-align: center; }
@@ -94,7 +94,6 @@ const el = { ps:$('ps'), gs:$('gs'), board:$('board'), boardSel:$('boardSel'), p
 
 let st = { scores:{player:0,grok:0}, hand:[], grokHand:[], crib:[], starter:null, phase:'discard', pegCount:0, pegSeq:[], turn:'player', dealer:'player' };
 const sel = new Set();
-const lastPos = { player: null, grok: null };
 
 const shuf = a => { for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
 const deck = () => R.flatMap(r => S.map(s => r+s));
@@ -118,18 +117,16 @@ function pos(score, offsetX = 0) {
   return { left: (t.x + offsetX) + '%', top: y + '%' };
 }
 
-function animatePeg(pegEl, target, key) {
-  const prev = lastPos[key];
-  lastPos[key] = target;
+function animatePeg(pegEl, target) {
   pegEl.classList.add('moving');
   pegEl.style.left = target.left;
   pegEl.style.top = target.top;
-  setTimeout(() => pegEl.classList.remove('moving'), 520);
+  setTimeout(() => pegEl.classList.remove('moving'), 480);
 }
 
 function updatePegs() {
-  animatePeg(el.pYou, pos(st.scores.player, 0), 'player');
-  animatePeg(el.pGrok, pos(st.scores.grok, 1.5), 'grok');
+  animatePeg(el.pYou, pos(st.scores.player, 0));
+  animatePeg(el.pGrok, pos(st.scores.grok, 1.2));
 }
 
 function addPts(who, pts, reason) {
