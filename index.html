@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hearth Cribbage</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap');
@@ -15,18 +16,27 @@
   .score.you { color: #f5d76e; } .score.grok { color: #8fd3f4; }
   select { background: rgba(0,0,0,.55); color: #f7f1e8; border: 1px solid rgba(240,215,140,.3); padding: 10px 18px; border-radius: 12px; font-size: .95rem; cursor: pointer; outline: none; }
   .board-wrap { position: relative; margin: 8px auto 16px; max-width: 420px; }
+  .board-wrap.wide { max-width: 680px; }
   .board-wrap img { width: 100%; border-radius: 18px; display: block; box-shadow: 0 20px 50px rgba(0,0,0,.75); }
+  /* Peg JPGs are tall images with the disc in the middle; zoom in so the disc fills the round mask. */
   .peg {
     position: absolute; width: 20px; height: 20px;
-    background-size: cover; background-repeat: no-repeat; background-position: center;
+    background-repeat: no-repeat;
     pointer-events: none; z-index: 4; border-radius: 50%;
     transform: translate(-50%, -50%);
     transition: left .5s cubic-bezier(.25,.1,.25,1), top .5s cubic-bezier(.25,.1,.25,1), transform .15s ease-out;
     filter: drop-shadow(0 2px 3px rgba(0,0,0,.6));
   }
   .peg.moving { transform: translate(-50%, -60%) scale(1.12); }
-  .peg.you { background-image: url('peg_brass_top.jpg'); }
-  .peg.grok { background-image: url('peg_steel_top.jpg'); }
+  .peg.you { background-image: url('peg_brass_top.jpg'); background-size: 205% auto; background-position: 50% 40.6%; }
+  .peg.grok { background-image: url('peg_steel_top.jpg'); background-size: 170% auto; background-position: 50% 45.8%; }
+  .opp { display: flex; gap: 4px; justify-content: center; margin: 4px 0; min-height: 44px; align-items: center; }
+  .opp .card { width: 30px; height: 44px; font-size: .6rem; cursor: default; }
+  .opp .card:hover { transform: none; }
+  .opp .card .r { font-size: .7rem; } .opp .card .s { font-size: .8rem; }
+  .opp-label { text-align: center; font-size: .62rem; letter-spacing: 1.8px; opacity: .55; text-transform: uppercase; font-weight: 600; }
+  .card.dim { opacity: .45; cursor: not-allowed; }
+  .msg div { opacity: .55; font-size: .88rem; } .msg div:last-child { opacity: 1; font-size: 1.02rem; }
   .count { text-align: center; font-size: 2.2rem; font-weight: 600; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.8); margin: 4px 0 12px; }
   .area { display: grid; grid-template-columns: 120px 1fr 120px; gap: 16px; }
   .panel { background: rgba(0,0,0,.4); border-radius: 14px; padding: 12px 8px; text-align: center; }
@@ -45,6 +55,50 @@
   button:disabled { opacity: .4; cursor: not-allowed; }
   .played { display: flex; gap: 6px; justify-content: center; min-height: 40px; margin: 8px 0; flex-wrap: wrap; }
   .played .card { width: 48px; height: 70px; font-size: .85rem; }
+  .peg.backpeg { opacity: .7; z-index: 3; }
+  #crib { flex-wrap: nowrap; gap: 0; }
+  #crib .card { width: 52px; height: 78px; flex-shrink: 0; cursor: default; }
+  #crib .card:hover { transform: none; }
+  #crib .card + .card { margin-left: -38px; }
+  #crib .card .r { font-size: .95rem; align-self: flex-start; margin-left: 4px; } #crib .card .s { font-size: 1rem; align-self: flex-start; margin-left: 4px; }
+  .score { position: relative; transition: box-shadow .3s; }
+  .score.flash { box-shadow: 0 0 0 2px currentColor, 0 0 24px currentColor; }
+  .float { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); font-size: 1.1rem; font-weight: 700; pointer-events: none; animation: rise 1.2s ease-out forwards; white-space: nowrap; }
+  @keyframes rise { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -34px); } }
+  .played .card { animation: drop .25s ease-out; }
+  @keyframes drop { from { opacity: 0; transform: translateY(-14px) scale(1.08); } to { opacity: 1; transform: none; } }
+  .show { display: none; background: rgba(0,0,0,.55); border: 1px solid rgba(240,215,140,.2); border-radius: 14px; padding: 10px 14px; margin: 12px 0 0; }
+  .show.on { display: block; }
+  .show-row { display: grid; grid-template-columns: 110px auto 1fr 52px; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; }
+  .show-row:last-child { border-bottom: none; }
+  .show-row.in { opacity: 1; transform: none; }
+  .show-row .lbl { font-size: .7rem; letter-spacing: 1.5px; text-transform: uppercase; opacity: .7; text-align: left; }
+  .show-row .mini { display: flex; gap: 3px; }
+  .show-row .mini .card { width: 30px; height: 44px; cursor: default; box-shadow: 0 3px 6px rgba(0,0,0,.5); }
+  .show-row .mini .card:hover { transform: none; }
+  .show-row .mini .card .r { font-size: .7rem; } .show-row .mini .card .s { font-size: .8rem; }
+  .show-row .mini .card.starter { outline: 2px solid #f0d78c; }
+  .show-row .why { font-size: .82rem; opacity: .8; text-align: left; }
+  .show-row .pts { font-size: 1.4rem; font-weight: 700; color: #f0d78c; text-align: right; }
+  .banner { display: none; text-align: center; margin: 12px 0 0; padding: 18px; border-radius: 14px; background: linear-gradient(180deg, rgba(240,215,140,.18), rgba(240,215,140,.05)); border: 1px solid rgba(240,215,140,.45); }
+  .banner.on { display: block; animation: drop .4s ease-out; }
+  .banner b { display: block; font-family: "Cormorant Garamond", serif; font-size: 2rem; color: #f0d78c; letter-spacing: 3px; }
+  .stats { text-align: center; font-size: .72rem; opacity: .5; margin-top: 12px; letter-spacing: 1px; }
+  button.ghost { background: rgba(0,0,0,.5); color: #f0d78c; border: 1px solid rgba(240,215,140,.35); }
+  .card.hint { box-shadow: 0 0 0 3px #7ee08a, 0 8px 18px rgba(0,0,0,.55); }
+  @media (max-width: 640px) {
+    .table { padding: 18px 10px; border-radius: 18px; }
+    h1 { font-size: 1.9rem; letter-spacing: 3px; }
+    .score { padding: 8px 14px; min-width: 0; font-size: 1.2rem; }
+    .bar { justify-content: center; }
+    .area { grid-template-columns: 1fr 1fr; }
+    .area .panel:nth-child(2) { grid-column: 1 / -1; order: -1; }
+    .card { width: 43px; height: 66px; }
+    .cards { gap: 4px; min-height: 80px; }
+    .card .r { font-size: 1rem; } .card .s { font-size: 1.1rem; }
+    .show-row { grid-template-columns: 1fr 44px; }
+    .show-row .mini, .show-row .why { grid-column: 1 / -1; }
+  }
 </style>
 </head>
 <body>
@@ -62,105 +116,466 @@
     </select>
     <div class="score grok">Grok <span id="gs">0</span></div>
   </div>
-  <div class="board-wrap">
+  <div class="board-wrap" id="boardWrap">
     <img id="board" src="board_luxury.jpg" alt="Board">
+    <div class="peg you backpeg" id="pYouB"></div>
+    <div class="peg grok backpeg" id="pGrokB"></div>
     <div class="peg you" id="pYou"></div>
     <div class="peg grok" id="pGrok"></div>
   </div>
+  <div class="opp-label" id="oppLabel">Grok's Hand</div>
+  <div class="opp" id="opp"></div>
   <div class="count" id="count">0</div>
   <div class="played" id="played"></div>
   <div class="area">
     <div class="panel"><h3>Starter</h3><div id="starter" class="cards"></div></div>
-    <div class="panel"><h3>Your Hand</h3><div id="hand" class="cards"></div></div>
-    <div class="panel"><h3>Crib</h3><div id="crib" class="cards"></div></div>
+    <div class="panel"><h3 id="handLabel">Your Hand</h3><div id="hand" class="cards"></div></div>
+    <div class="panel"><h3 id="cribLabel">Crib</h3><div id="crib" class="cards"></div></div>
   </div>
-  <div class="msg" id="msg">Select two cards to discard to the crib.</div>
+  <div class="show" id="show"></div>
+  <div class="banner" id="banner"></div>
+  <div class="msg" id="msg"></div>
   <div class="btns">
     <button id="discard" disabled>Discard 2</button>
-    <button id="go" style="display:none">Go</button>
+    <button id="hint" class="ghost">Hint</button>
     <button id="newH">New Hand</button>
     <button id="newG">New Game</button>
+    <button id="sound" class="ghost" title="Toggle sound">Sound: On</button>
   </div>
+  <div class="stats" id="stats"></div>
 </div>
 <script>
 const R = ['A','2','3','4','5','6','7','8','9','T','J','Q','K'];
-const S = ['\u2660','\u2665','\u2666','\u2663'];
+const S = ['♠','♥','♦','♣'];
 const val = {A:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9,T:10,J:10,Q:10,K:10};
 const ord = Object.fromEntries(R.map((r,i)=>[r,i]));
-const red = new Set(['\u2665','\u2666']);
+const red = new Set(['♥','♦']);
+const WIN = 121;
 
 const $ = id => document.getElementById(id);
-const el = { ps:$('ps'), gs:$('gs'), board:$('board'), boardSel:$('boardSel'), pYou:$('pYou'), pGrok:$('pGrok'), count:$('count'), hand:$('hand'), starter:$('starter'), crib:$('crib'), msg:$('msg'), discard:$('discard'), go:$('go'), played:$('played') };
+const el = { ps:$('ps'), gs:$('gs'), board:$('board'), boardWrap:$('boardWrap'), boardSel:$('boardSel'), pYou:$('pYou'), pGrok:$('pGrok'), count:$('count'), hand:$('hand'), handLabel:$('handLabel'), starter:$('starter'), crib:$('crib'), cribLabel:$('cribLabel'), opp:$('opp'), oppLabel:$('oppLabel'), msg:$('msg'), discard:$('discard'), played:$('played'),
+  pYouB:$('pYouB'), pGrokB:$('pGrokB'), show:$('show'), banner:$('banner'), hint:$('hint'), sound:$('sound'), stats:$('stats') };
 
-let st = { scores:{player:0,grok:0}, hand:[], grokHand:[], crib:[], starter:null, phase:'discard', pegCount:0, pegSeq:[], turn:'player', dealer:'player' };
-const sel = new Set();
+/* ---------------- Saved preferences & stats ---------------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('hearth.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('hearth.' + k, JSON.stringify(v)); } catch {} }
+};
+const stats = store.get('stats', { played: 0, won: 0, lost: 0, skunks: 0, skunked: 0, best: 0 });
+function renderStats() {
+  el.stats.textContent = stats.played
+    ? `Games ${stats.played} · Won ${stats.won} · Lost ${stats.lost} · Skunks ${stats.skunks}/${stats.skunked} · Best hand ${stats.best}`
+    : 'No games finished yet.';
+}
+
+/* ---------------- Sound (synthesised, no files needed) ---------------- */
+let soundOn = store.get('sound', true);
+let actx = null;
+function tone(freq, dur, type = 'triangle', vol = .18, delay = 0) {
+  if (!soundOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+  } catch {}
+}
+const sfx = {
+  card: () => tone(520, .07, 'square', .05),
+  peg:  n => { for (let i = 0; i < Math.min(n, 6); i++) tone(1400 - i*40, .06, 'triangle', .12, i * .07); },
+  win:  () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .35, 'triangle', .15, i * .14)),
+  lose: () => [392, 330, 262].forEach((f, i) => tone(f, .4, 'sine', .15, i * .18))
+};
+function renderSound() { el.sound.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); }
+el.sound.onclick = () => { soundOn = !soundOn; store.set('sound', soundOn); renderSound(); if (soundOn) sfx.card(); };
 
 const shuf = a => { for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
 const deck = () => R.flatMap(r => S.map(s => r+s));
-const sort = h => h.slice().sort((a,b) => ord[a[0]]-ord[b[0]]);
+const sort = h => h.slice().sort((a,b) => ord[a[0]]-ord[b[0]] || S.indexOf(a[1])-S.indexOf(b[1]));
 const cVal = c => val[c[0]];
+const name = c => (c[0]==='T'?'10':c[0]) + c[1];
+const other = w => w === 'player' ? 'grok' : 'player';
+const who2 = w => w === 'player' ? 'You' : 'Grok';
 
-// Start zone sits in the lower card-holder area. Tracks begin above it.
-const START = [
-  { x: 32, y: 88 },  // You start
-  { x: 42, y: 88 }   // Grok start
-];
-const TRACKS = [
-  { x: 28, yStart: 68, yEnd: 16 },
-  { x: 50, yStart: 16, yEnd: 68 },
-  { x: 72, yStart: 68, yEnd: 16 }
-];
+let st;
+const sel = new Set();
+
+/* ---------------- Board geometry ----------------
+   Coordinates are % of the board image. Each lane is three tracks (polylines, in
+   travel order) with 40 holes each = 120 holes; 121 is the finish point. */
 const HOLES_PER_TRACK = 40;
+const shiftX = (tracks, dx) => tracks.map(t => t.map(([x,y]) => [x+dx, y]));
+const BOARDS = {
+  'board_luxury.jpg': {
+    you:  [[[30.6,61.0],[30.6,17.6]], [[47.2,17.6],[47.2,61.0]], [[63.8,61.0],[63.8,17.6]]],
+    grok: [[[36.1,61.0],[36.1,17.6]], [[52.6,17.6],[52.6,61.0]], [[69.3,61.0],[69.3,17.6]]],
+    start: [[30.6,64.5],[36.1,64.5]], finish: [66.5,14.2]
+  },
+  'board_deco.jpg': {
+    you:  [[[32.5,54.5],[32.5,19.0]], [[47.3,18.0],[47.3,56.5]], [[63.4,54.5],[63.4,19.0]]],
+    grok: [[[37.9,54.5],[37.9,19.0]], [[52.6,18.0],[52.6,56.5]], [[68.9,54.5],[68.9,19.0]]],
+    start: [[32.5,57.5],[37.9,57.5]], finish: [66.1,16.0]
+  },
+  'board_maple.jpg': (() => {
+    const you = [
+      [[25.0,14.4],[29.6,22.4],[34.7,30.8],[38.9,39.4],[39.3,46.2],[36.0,52.2]],
+      [[50.4,50.3],[52.9,43.7],[51.7,36.8],[47.4,28.3],[42.3,20.5],[36.6,13.3]],
+      [[49.5,14.4],[56.1,20.5],[61.5,27.4],[64.7,36.0],[64.8,42.8],[61.7,49.8]]
+    ];
+    return { you: shiftX(you, 1.0), grok: shiftX(you, 3.2), start: [[23.5,11.0],[27.0,10.5]], finish: [60.0,52.5] };
+  })(),
+  'board_steam.jpg': {
+    you:  [[[25.5,18.2],[78.1,18.2]], [[78.1,28.9],[25.5,28.9]], [[25.5,45.5],[78.1,45.5]]],
+    grok: [[[25.5,20.9],[78.1,20.9]], [[78.1,31.9],[25.5,31.9]], [[25.5,48.5],[78.1,48.5]]],
+    start: [[20.0,18.2],[20.0,20.9]], finish: [81.5,47.0]
+  },
+  'board_classic.jpg': {
+    wide: true,
+    you:  [[[7.5,38.1],[90.8,38.1]], [[90.8,46.7],[7.5,46.7]], [[7.5,55.5],[90.8,55.5]]],
+    grok: [[[7.5,41.6],[90.8,41.6]], [[90.8,50.4],[7.5,50.4]], [[7.5,59.1],[90.8,59.1]]],
+    start: [[5.0,38.1],[5.0,41.6]], finish: [93.8,57.3]
+  }
+};
+
+// Point at distance fraction f (0..1) along a polyline.
+function along(pts, f) {
+  const segs = []; let total = 0;
+  for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); segs.push(d); total += d; }
+  let target = f * total;
+  for (let i = 0; i < segs.length; i++) {
+    if (target <= segs[i] || i === segs.length-1) {
+      const t = segs[i] ? Math.min(1, target / segs[i]) : 0;
+      return [pts[i][0] + (pts[i+1][0]-pts[i][0])*t, pts[i][1] + (pts[i+1][1]-pts[i][1])*t];
+    }
+    target -= segs[i];
+  }
+  return pts[pts.length-1];
+}
 
 function pos(score, isGrok) {
-  if (score <= 0) return { left: START[isGrok?1:0].x + '%', top: START[isGrok?1:0].y + '%' };
-  const s = Math.min(score, 120);
-  const trackIdx = Math.min(2, Math.floor((s - 1) / HOLES_PER_TRACK));
-  const hole = (s - 1) % HOLES_PER_TRACK;
-  const t = TRACKS[trackIdx];
-  const progress = hole / (HOLES_PER_TRACK - 1);
-  const y = t.yStart + (t.yEnd - t.yStart) * progress;
-  return { left: t.x + '%', top: y + '%' };
+  const b = BOARDS[el.boardSel.value];
+  let p;
+  if (score <= 0) p = b.start[isGrok?1:0];
+  else if (score >= WIN) p = b.finish;
+  else {
+    const track = Math.floor((score - 1) / HOLES_PER_TRACK);
+    const hole = (score - 1) % HOLES_PER_TRACK;
+    p = along((isGrok ? b.grok : b.you)[track], hole / (HOLES_PER_TRACK - 1));
+  }
+  return { left: p[0] + '%', top: p[1] + '%' };
 }
 
 function animatePeg(pegEl, target) {
+  if (pegEl.style.left === target.left && pegEl.style.top === target.top) return;
   pegEl.classList.add('moving');
   pegEl.style.left = target.left;
   pegEl.style.top = target.top;
   setTimeout(() => pegEl.classList.remove('moving'), 480);
 }
 
+// Two pegs each: the front peg marks the score, the back peg the previous score (leapfrog).
 function updatePegs() {
   animatePeg(el.pYou, pos(st.scores.player, false));
   animatePeg(el.pGrok, pos(st.scores.grok, true));
+  animatePeg(el.pYouB, pos(st.back.player, false));
+  animatePeg(el.pGrokB, pos(st.back.grok, true));
 }
 
+function flashScore(who, pts) {
+  const box = (who === 'player' ? el.ps : el.gs).parentElement;
+  box.classList.add('flash');
+  const f = document.createElement('span'); f.className = 'float'; f.textContent = '+' + pts;
+  box.appendChild(f);
+  setTimeout(() => { box.classList.remove('flash'); f.remove(); }, 1200);
+}
+
+/* ---------------- Messages ---------------- */
+const log = [];
+function say(text) {
+  log.push(text); if (log.length > 4) log.shift();
+  el.msg.replaceChildren(...log.map(t => { const d = document.createElement('div'); d.textContent = t; return d; }));
+}
+
+/* ---------------- Scoring ---------------- */
+// Returns true if the game ended.
 function addPts(who, pts, reason) {
-  if (!pts) return;
-  st.scores[who] = Math.min(121, st.scores[who]+pts);
-  (who==='player'?el.ps:el.gs).textContent = st.scores[who];
-  updatePegs();
-  el.msg.textContent = (who==='player'?'You':'Grok') + ' score ' + pts + (reason?' ('+reason+')':'') + (st.scores[who]>=121?' \u2014 Game over!':'.');
+  if (!pts || st.phase === 'over') return st.phase === 'over';
+  st.back[who] = st.scores[who];
+  st.scores[who] = Math.min(WIN, st.scores[who] + pts);
+  say(who2(who) + ' score' + (who==='grok'?'s ':' ') + pts + (reason ? ' (' + reason + ')' : '') + '.');
+  flashScore(who, pts);
+  sfx.peg(pts);
+  if (st.scores[who] >= WIN) endGame(who);
+  render();
+  return st.phase === 'over';
 }
 
-function newHand() {
+function endGame(winner) {
+  st.phase = 'over';
+  const loserScore = st.scores[other(winner)];
+  const skunk = loserScore < 61 ? 'double skunk' : loserScore < 91 ? 'skunk' : '';
+  stats.played++;
+  if (winner === 'player') { stats.won++; if (skunk) stats.skunks++; sfx.win(); }
+  else { stats.lost++; if (skunk) stats.skunked++; sfx.lose(); }
+  store.set('stats', stats); renderStats();
+  const title = winner === 'player' ? 'You Win' : 'Grok Wins';
+  el.banner.innerHTML = '<b></b><span></span>';
+  el.banner.querySelector('b').textContent = title + (skunk ? ' — ' + skunk.replace(/^./, c => c.toUpperCase()) + '!' : '');
+  el.banner.querySelector('span').textContent = `Final score ${st.scores.player}–${st.scores.grok}. Click New Game to play again.`;
+  el.banner.classList.add('on');
+  say(title + '!');
+}
+
+function isRun(ranks) {
+  const s = ranks.slice().sort((a,b)=>a-b);
+  for (let i = 1; i < s.length; i++) if (s[i] !== s[i-1] + 1) return false;
+  return true;
+}
+
+// Pegging points for the card just added to the current series.
+function pegScore(seq, count) {
+  let pts = 0; const why = [];
+  if (count === 15) { pts += 2; why.push('15'); }
+  if (count === 31) { pts += 2; why.push('31'); }
+  const last = seq[seq.length-1];
+  let same = 1;
+  for (let i = seq.length-2; i >= 0 && seq[i][0] === last[0]; i--) same++;
+  if (same === 2) { pts += 2; why.push('pair'); }
+  else if (same === 3) { pts += 6; why.push('pair royal'); }
+  else if (same === 4) { pts += 12; why.push('double pair royal'); }
+  for (let k = seq.length; k >= 3; k--) {
+    if (isRun(seq.slice(-k).map(c => ord[c[0]]))) { pts += k; why.push('run of ' + k); break; }
+  }
+  return { pts, why: why.join(', ') };
+}
+
+// Show score for a 4-card hand plus starter (starter may be null for estimates).
+function scoreHand(cards, starter, isCrib) {
+  const all = starter ? [...cards, starter] : cards.slice();
+  let pts = 0; const why = [];
+  const n = all.length;
+  let fif = 0;
+  for (let m = 1; m < (1<<n); m++) {
+    let s = 0; for (let i = 0; i < n; i++) if (m & (1<<i)) s += cVal(all[i]);
+    if (s === 15) fif += 2;
+  }
+  if (fif) { pts += fif; why.push('fifteens ' + fif); }
+  let pr = 0;
+  for (let i = 0; i < n; i++) for (let j = i+1; j < n; j++) if (all[i][0] === all[j][0]) pr += 2;
+  if (pr) { pts += pr; why.push('pairs ' + pr); }
+  for (let len = n; len >= 3; len--) {
+    let runs = 0;
+    for (let m = 1; m < (1<<n); m++) {
+      const idx = []; for (let i = 0; i < n; i++) if (m & (1<<i)) idx.push(i);
+      if (idx.length === len && isRun(idx.map(i => ord[all[i][0]]))) runs++;
+    }
+    if (runs) { pts += runs * len; why.push('runs ' + runs*len); break; }
+  }
+  const suit = cards[0][1];
+  if (cards.length === 4 && cards.every(c => c[1] === suit)) {
+    if (starter && starter[1] === suit) { pts += 5; why.push('flush 5'); }
+    else if (!isCrib) { pts += 4; why.push('flush 4'); }
+  }
+  if (starter && cards.some(c => c[0] === 'J' && c[1] === starter[1])) { pts += 1; why.push('nobs 1'); }
+  return { pts, why: why.join(', ') };
+}
+
+/* ---------------- Dealing / discarding ---------------- */
+let handId = 0;
+const later = (fn, ms) => { const id = handId; setTimeout(() => { if (id === handId) fn(); }, ms); };
+
+function deal() {
+  handId++;
+  st.dealer = st.dealer ? other(st.dealer) : (Math.random() < .5 ? 'player' : 'grok');
   const d = shuf(deck());
+  st.deck = d.slice(12);
   st.hand = sort(d.slice(0,6));
   st.grokHand = sort(d.slice(6,12));
-  st.crib = []; st.starter = null; st.phase = 'discard'; st.pegCount = 0; st.pegSeq = []; st.turn = 'player';
+  st.kept = { player: [], grok: [] };
+  st.crib = []; st.starter = null; st.phase = 'discard';
+  st.count = 0; st.seq = []; st.turn = null; st.last = null; st.hint = null;
   sel.clear();
-  el.msg.textContent = 'Select two cards to discard to the crib.';
-  el.count.textContent = '0';
-  el.go.style.display = 'none';
-  el.discard.style.display = '';
+  el.show.classList.remove('on'); el.show.replaceChildren();
+  el.banner.classList.remove('on');
+  say('New hand. ' + (st.dealer === 'player' ? 'You deal' : 'Grok deals') + ' — select two cards for ' + (st.dealer === 'player' ? 'your' : "Grok's") + ' crib.');
   render();
 }
-function newGame() { st.scores = {player:0,grok:0}; newHand(); }
 
+function newGame() {
+  st = { scores: { player: 0, grok: 0 }, back: { player: 0, grok: 0 }, dealer: null };
+  log.length = 0;
+  deal();
+}
+
+// Best two cards to throw: average hand value over every possible starter,
+// plus (own crib) or minus (opponent's crib) what the two thrown cards are worth together.
+function bestDiscard(h, isDealer) {
+  const unseen = deck().filter(c => !h.includes(c));
+  let best = null, bestV = -Infinity;
+  for (let i = 0; i < 6; i++) for (let j = i+1; j < 6; j++) {
+    const keep = h.filter((_, k) => k !== i && k !== j);
+    let tot = 0;
+    for (const s of unseen) tot += scoreHand(keep, s, false).pts;
+    const crib = scoreHand([h[i], h[j]], null, true).pts;
+    const v = tot / unseen.length + (isDealer ? crib : -crib);
+    if (v > bestV) { bestV = v; best = { cards: [h[i], h[j]], ev: tot / unseen.length }; }
+  }
+  return best;
+}
+const grokDiscard = () => bestDiscard(st.grokHand, st.dealer === 'grok').cards;
+
+el.hint.onclick = () => {
+  if (st.phase === 'discard') {
+    const b = bestDiscard(st.hand, st.dealer === 'player');
+    st.hint = b.cards;
+    sel.clear(); b.cards.forEach(c => sel.add(c));
+    say('Hint: throw ' + b.cards.map(name).join(' and ') + ' (keeps a hand worth about ' + b.ev.toFixed(1) + ' on average).');
+    render();
+  } else if (st.phase === 'peg' && st.turn === 'player') {
+    const playable = st.hand.filter(c => st.count + cVal(c) <= 31);
+    let best = playable[0], bv = -Infinity;
+    for (const c of playable) {
+      const n = st.count + cVal(c);
+      let v = pegScore([...st.seq, c], n).pts * 10 - ((n === 5 || n === 21) ? 3 : 0) + cVal(c) * .1;
+      if (v > bv) { bv = v; best = c; }
+    }
+    st.hint = [best];
+    say('Hint: play ' + name(best) + '.');
+    render();
+  } else say('No hint right now.');
+};
+
+el.discard.onclick = () => {
+  if (sel.size !== 2 || st.phase !== 'discard') return;
+  const disc = [...sel];
+  st.hand = st.hand.filter(c => !sel.has(c));
+  const gDisc = grokDiscard();
+  st.grokHand = st.grokHand.filter(c => !gDisc.includes(c));
+  st.crib = sort([...disc, ...gDisc]);
+  st.kept = { player: st.hand.slice(), grok: st.grokHand.slice() };
+  st.starter = st.deck[Math.random() * st.deck.length | 0];
+  sel.clear(); st.hint = null;
+  st.phase = 'peg';
+  say('Starter: ' + name(st.starter) + '.');
+  if (st.starter[0] === 'J' && addPts(st.dealer, 2, 'his heels')) return;
+  // Non-dealer leads.
+  setTurn(other(st.dealer));
+};
+
+/* ---------------- Pegging ---------------- */
+const handOf = w => w === 'player' ? st.hand : st.grokHand;
+const canPlay = w => handOf(w).some(c => st.count + cVal(c) <= 31);
+
+function setTurn(w) {
+  st.turn = w;
+  render();
+  if (w === 'grok') later(grokPlay, 700);
+  else say('Your play. Count is ' + st.count + '.');
+}
+
+function playCard(w, c) {
+  const h = handOf(w);
+  h.splice(h.indexOf(c), 1);
+  st.hint = null;
+  sfx.card();
+  st.seq.push(c);
+  st.count += cVal(c);
+  st.last = w;
+  const { pts, why } = pegScore(st.seq, st.count);
+  if (!pts) say(who2(w) + ' played ' + name(c) + '. Count: ' + st.count + '.');
+  else { say(who2(w) + ' played ' + name(c) + ' for ' + st.count + '.'); if (addPts(w, pts, why)) return; }
+  if (st.count === 31) { st.count = 0; st.seq = []; }
+  advance(w);
+}
+
+// Decide what happens after `prev` acted.
+function advance(prev) {
+  if (!st.hand.length && !st.grokHand.length) {
+    if (st.count > 0 && addPts(st.last, 1, 'last card')) return;
+    render();
+    later(scoreHands, 900);
+    return;
+  }
+  const nxt = other(prev);
+  if (canPlay(nxt)) return setTurn(nxt);
+  if (canPlay(prev)) {
+    if (handOf(nxt).length) say(who2(nxt) + (nxt==='player' ? ' can’t play — Go.' : ' says Go.'));
+    return setTurn(prev);
+  }
+  // Neither can play: the last player to lay a card pegs 1 for the go and the count resets.
+  if (st.count > 0 && addPts(st.last, 1, 'go')) return;
+  st.count = 0; st.seq = [];
+  const lead = handOf(other(st.last)).length ? other(st.last) : st.last;
+  setTurn(lead);
+}
+
+function onPlay(c) {
+  if (st.phase !== 'peg' || st.turn !== 'player') return;
+  if (st.count + cVal(c) > 31) { say('Can’t play ' + name(c) + ' — it would go over 31.'); return; }
+  st.turn = null;
+  playCard('player', c);
+}
+
+function grokPlay() {
+  if (st.phase !== 'peg' || st.turn !== 'grok') return;
+  const playable = st.grokHand.filter(c => st.count + cVal(c) <= 31);
+  let best = null, bestV = -Infinity;
+  for (const c of shuf(playable.slice())) {
+    const n = st.count + cVal(c);
+    let v = pegScore([...st.seq, c], n).pts * 10;
+    if (n === 5 || n === 21) v -= 3;           // easy 15/31 for opponent
+    v += cVal(c) * 0.1;
+    if (v > bestV) { bestV = v; best = c; }
+  }
+  st.turn = null;
+  playCard('grok', best);
+}
+
+/* ---------------- Show ---------------- */
+function scoreHands() {
+  if (st.phase !== 'peg') return;
+  st.phase = 'score';
+  render();
+  const nd = other(st.dealer);
+  const order = [
+    [nd, st.kept[nd], false, who2(nd) + (nd==='player' ? 'r hand' : '’s hand')],
+    [st.dealer, st.kept[st.dealer], false, who2(st.dealer) + (st.dealer==='player' ? 'r hand' : '’s hand')],
+    [st.dealer, st.crib, true, 'crib']
+  ];
+  // Count each hand in turn, like at the table: reveal a row, then peg it.
+  el.show.replaceChildren(); el.show.classList.add('on');
+  const rows = order.map(([w, cards, isCrib, label]) => {
+    const { pts, why } = scoreHand(cards, st.starter, isCrib);
+    const row = document.createElement('div'); row.className = 'show-row';
+    const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = label;
+    const mini = document.createElement('div'); mini.className = 'mini';
+    for (const c of sort(cards)) mini.appendChild(mkCard(c));
+    const sc = mkCard(st.starter); sc.classList.add('starter'); mini.appendChild(sc);
+    const wy = document.createElement('div'); wy.className = 'why'; wy.textContent = why || 'nineteen (nothing)';
+    const p = document.createElement('div'); p.className = 'pts'; p.textContent = pts;
+    row.append(lbl, mini, wy, p); el.show.appendChild(row);
+    return { w, pts, why, label, row, isCrib };
+  });
+  const step = i => {
+    if (st.phase !== 'score') return;
+    if (i >= rows.length) { say('Hand complete. Click New Hand to continue.'); return; }
+    const r = rows[i];
+    r.row.classList.add('in');
+    if (r.w === 'player' && !r.isCrib && r.pts > stats.best) { stats.best = r.pts; store.set('stats', stats); renderStats(); }
+    if (r.pts && addPts(r.w, r.pts, r.label + ': ' + r.why)) return;
+    if (!r.pts) say(r.label.charAt(0).toUpperCase() + r.label.slice(1) + ': 0.');
+    later(() => step(i + 1), 1300);
+  };
+  later(() => step(0), 300);
+}
+
+/* ---------------- Rendering ---------------- */
 function mkCard(c, opts={}) {
-  const {back=false, click=null, playable=false} = opts;
+  const {back=false, click=null, playable=false, dim=false} = opts;
   const elCard = document.createElement('div');
-  elCard.className = 'card' + (back?' back':'') + (c && red.has(c[1])?' red':' black') + (playable?' playable':'');
+  elCard.className = 'card' + (back?' back':'') + (c && red.has(c[1])?' red':' black') + (playable?' playable':'') + (dim?' dim':'') + (sel.has(c)?' sel':'') + (!back && st.hint && st.hint.includes(c) && (st.phase==='discard' || st.phase==='peg') ? ' hint' : '');
   if (!back && c) {
     const r = document.createElement('div'); r.className='r'; r.textContent = c[0]==='T'?'10':c[0];
     const s = document.createElement('div'); s.className='s'; s.textContent = c[1];
@@ -170,154 +585,67 @@ function mkCard(c, opts={}) {
   return elCard;
 }
 
-function fill(container, items, opts) {
-  const frag = document.createDocumentFragment();
-  for (const c of items) frag.appendChild(mkCard(c, opts));
-  container.replaceChildren(frag);
-}
-
 function render() {
   el.ps.textContent = st.scores.player;
   el.gs.textContent = st.scores.grok;
-  const canSelect = st.phase === 'discard';
-  const canPlay = st.phase === 'peg' && st.turn === 'player';
-  fill(el.hand, st.hand, { click: canSelect ? onSelect : (canPlay ? onPlay : null), playable: canPlay });
+  const showdown = st.phase === 'score' || (st.phase === 'over' && st.starter);
+  // Player hand
+  el.hand.replaceChildren();
+  if (showdown) {
+    for (const c of st.kept.player) el.hand.appendChild(mkCard(c));
+  } else if (st.phase === 'discard') {
+    for (const c of st.hand) el.hand.appendChild(mkCard(c, { click: onSelect }));
+  } else {
+    const myTurn = st.phase === 'peg' && st.turn === 'player';
+    for (const c of st.hand) {
+      const ok = st.count + cVal(c) <= 31;
+      el.hand.appendChild(mkCard(c, { click: myTurn ? onPlay : null, playable: myTurn && ok, dim: myTurn && !ok }));
+    }
+  }
+  // Grok hand
+  el.opp.replaceChildren();
+  const grokCards = showdown ? st.kept.grok : st.grokHand;
+  for (const c of grokCards) el.opp.appendChild(mkCard(c, { back: !showdown }));
+  el.oppLabel.textContent = 'Grok’s Hand' + (st.dealer === 'grok' ? ' (dealer)' : '');
+  el.handLabel.textContent = 'Your Hand' + (st.dealer === 'player' ? ' (dealer)' : '');
+  el.cribLabel.textContent = st.dealer === 'player' ? 'Your Crib' : 'Grok’s Crib';
+  // Starter / crib / played
   el.starter.replaceChildren();
   if (st.starter) el.starter.appendChild(mkCard(st.starter));
-  fill(el.crib, st.crib, { back: st.phase !== 'score' });
-  el.discard.disabled = sel.size !== 2 || st.phase !== 'discard';
-  el.go.style.display = (st.phase === 'peg' && st.turn === 'player') ? '' : 'none';
-  const pFrag = document.createDocumentFragment();
-  for (const c of st.pegSeq) pFrag.appendChild(mkCard(c));
-  el.played.replaceChildren(pFrag);
+  el.crib.replaceChildren(...st.crib.map(c => mkCard(c, { back: !showdown })));
+  el.played.replaceChildren(...st.seq.map(c => mkCard(c)));
+  el.count.textContent = st.count;
+  el.discard.style.display = st.phase === 'discard' ? '' : 'none';
+  el.discard.disabled = sel.size !== 2;
+  el.hint.disabled = !(st.phase === 'discard' || (st.phase === 'peg' && st.turn === 'player'));
   updatePegs();
 }
 
 function onSelect(c, elCard) {
+  if (st.phase !== 'discard') return;
   if (sel.has(c)) { sel.delete(c); elCard.classList.remove('sel'); }
   else if (sel.size < 2) { sel.add(c); elCard.classList.add('sel'); }
   el.discard.disabled = sel.size !== 2;
 }
 
-function onPlay(c) {
-  if (st.phase !== 'peg' || st.turn !== 'player') return;
-  const v = cVal(c);
-  if (st.pegCount + v > 31) { el.msg.textContent = 'Cannot play ' + c + ' (would exceed 31).'; return; }
-  playCard('player', c);
+function applyBoard() {
+  el.board.src = el.boardSel.value;
+  el.boardWrap.classList.toggle('wide', !!BOARDS[el.boardSel.value].wide);
+  store.set('board', el.boardSel.value);
+  updatePegs();
 }
-
-function playCard(who, c) {
-  const hand = who === 'player' ? st.hand : st.grokHand;
-  const idx = hand.indexOf(c);
-  if (idx === -1) return;
-  hand.splice(idx, 1);
-  st.pegSeq.push(c);
-  st.pegCount += cVal(c);
-  el.count.textContent = st.pegCount;
-
-  let pts = 0, reason = '';
-  if (st.pegCount === 15) { pts += 2; reason = '15'; }
-  if (st.pegCount === 31) { pts += 2; reason = (reason?reason+', ':'') + '31'; }
-  const last = st.pegSeq.slice(-4);
-  let pair = 0;
-  for (let i = last.length-2; i >= 0; i--) {
-    if (last[i][0] === c[0]) pair++;
-    else break;
-  }
-  if (pair === 1) { pts += 2; reason += (reason?', ':'') + 'pair'; }
-  else if (pair === 2) { pts += 6; reason += (reason?', ':'') + 'pair royal'; }
-  else if (pair === 3) { pts += 12; reason += (reason?', ':'') + 'double pair royal'; }
-
-  if (pts) addPts(who, pts, reason);
-  else el.msg.textContent = (who==='player'?'You':'Grok') + ' played ' + c + '. Count: ' + st.pegCount;
-
-  if (st.pegCount === 31) resetPeg();
-  else {
-    st.turn = who === 'player' ? 'grok' : 'player';
-    if (st.turn === 'grok') setTimeout(grokPlay, 600);
-  }
-  render();
-}
-
-function resetPeg() {
-  st.pegCount = 0; st.pegSeq = []; el.count.textContent = '0';
-  if (st.hand.length === 0 && st.grokHand.length === 0) { endPegging(); return; }
-  st.turn = 'player';
-  render();
-}
-
-function grokPlay() {
-  if (st.phase !== 'peg' || st.turn !== 'grok') return;
-  const playable = st.grokHand.filter(c => st.pegCount + cVal(c) <= 31);
-  if (playable.length === 0) { addPts('player', 1, 'go'); resetPeg(); return; }
-  const c = playable[Math.floor(Math.random()*playable.length)];
-  playCard('grok', c);
-}
-
-el.go.onclick = () => {
-  if (st.turn !== 'player') return;
-  const playable = st.hand.filter(c => st.pegCount + cVal(c) <= 31);
-  if (playable.length) { el.msg.textContent = 'You can still play a card.'; return; }
-  addPts('grok', 1, 'go');
-  resetPeg();
-};
-
-function endPegging() {
-  st.phase = 'score';
-  el.msg.textContent = 'Pegging complete. Scoring hands...';
-  setTimeout(scoreHands, 800);
-}
-
-function scoreHands() {
-  function scoreHand(cards, starter) {
-    const all = [...cards, starter];
-    let pts = 0;
-    const ranks = all.map(c => c[0]);
-    for (let i = 0; i < ranks.length; i++) for (let j = i+1; j < ranks.length; j++) if (ranks[i]===ranks[j]) pts += 2;
-    const vals = all.map(cVal);
-    for (let mask = 1; mask < (1<<vals.length); mask++) {
-      let sum = 0;
-      for (let i = 0; i < vals.length; i++) if (mask & (1<<i)) sum += vals[i];
-      if (sum === 15) pts += 2;
-    }
-    return pts;
-  }
-  const pPts = scoreHand(st.hand, st.starter);
-  const gPts = scoreHand(st.grokHand, st.starter);
-  const cPts = scoreHand(st.crib, st.starter);
-  if (pPts) addPts('player', pPts, 'hand');
-  if (gPts) addPts('grok', gPts, 'hand');
-  if (cPts) addPts(st.dealer, cPts, 'crib');
-  el.msg.textContent = 'Hand complete. Click New Hand to continue.';
-  render();
-}
-
-el.boardSel.onchange = () => { el.board.src = el.boardSel.value; updatePegs(); };
-el.discard.onclick = () => {
-  if (sel.size !== 2) return;
-  const disc = [...sel];
-  st.hand = st.hand.filter(c => !sel.has(c));
-  st.crib.push(...disc);
-  const gDisc = shuf(st.grokHand).slice(0,2);
-  st.grokHand = st.grokHand.filter(c => !gDisc.includes(c));
-  st.crib.push(...gDisc);
-  const remaining = shuf(deck()).find(c => ![...st.hand, ...st.grokHand, ...st.crib].includes(c));
-  st.starter = remaining;
-  if (st.starter[0] === 'J') addPts(st.dealer, 2, 'his heels');
-  st.phase = 'peg'; st.turn = st.dealer === 'player' ? 'grok' : 'player';
-  el.msg.textContent = 'Starter: ' + st.starter + '. Pegging begins. Click a card to play.';
-  el.discard.style.display = 'none';
-  sel.clear();
-  render();
-  if (st.turn === 'grok') setTimeout(grokPlay, 800);
-};
-$('newH').onclick = newHand;
+el.boardSel.onchange = applyBoard;
+$('newH').onclick = () => { if (st.phase === 'over') newGame(); else deal(); };
 $('newG').onclick = newGame;
 
-['board_luxury.jpg','board_maple.jpg','board_steam.jpg','board_deco.jpg','board_classic.jpg'].forEach(src => { const img = new Image(); img.src = src; });
+Object.keys(BOARDS).forEach(src => { const img = new Image(); img.src = src; });
 
-newHand();
-updatePegs();
+const savedBoard = store.get('board', null);
+if (savedBoard && BOARDS[savedBoard]) el.boardSel.value = savedBoard;
+renderSound();
+renderStats();
+newGame();
+applyBoard();
 </script>
 </body>
 </html>
