@@ -32,4 +32,5 @@ Open `index.html` in a browser. All images must be in the same folder.
 - Hint button: best discard (by expected hand value) and best pegging play
 - Synthesised sound effects with an on/off toggle
 - Skunk / double-skunk detection and win/loss stats, saved in the browser
+- Board and your hand fit on one screen: side by side on desktop (the board stays in view as you scroll), stacked and compact on tablets and phones
 - Remembers your board choice; works on phones
