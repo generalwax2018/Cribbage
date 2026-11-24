@@ -15,21 +15,26 @@
   .score { background: rgba(0,0,0,.5); border: 1px solid rgba(240,215,140,.2); padding: 12px 28px; border-radius: 14px; font-size: 1.6rem; font-weight: 600; min-width: 140px; text-align: center; }
   .score.you { color: #f5d76e; } .score.grok { color: #8fd3f4; }
   select { background: rgba(0,0,0,.55); color: #f7f1e8; border: 1px solid rgba(240,215,140,.3); padding: 10px 18px; border-radius: 12px; font-size: .95rem; cursor: pointer; outline: none; }
-  .board-wrap { position: relative; margin: 8px auto 16px; max-width: 420px; }
-  .board-wrap.wide { max-width: 680px; }
-  .board-wrap img { width: 100%; border-radius: 18px; display: block; box-shadow: 0 20px 50px rgba(0,0,0,.75); }
+  /* Fixed aspect ratio so the board area keeps its shape while the image loads, or if it can't. */
+  .board-wrap { position: relative; margin: 8px auto 16px; max-width: 420px; aspect-ratio: 784 / 1168; }
+  .board-wrap.wide { max-width: 680px; aspect-ratio: 1168 / 784; }
+  .board-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 18px; display: block; box-shadow: 0 20px 50px rgba(0,0,0,.75); background: #3b2516; }
   /* Peg JPGs are tall images with the disc in the middle; zoom in so the disc fills the round mask. */
   .peg {
     position: absolute; width: 20px; height: 20px;
     background-repeat: no-repeat;
     pointer-events: none; z-index: 4; border-radius: 50%;
     transform: translate(-50%, -50%);
-    transition: left .5s cubic-bezier(.25,.1,.25,1), top .5s cubic-bezier(.25,.1,.25,1), transform .15s ease-out;
+    transition: opacity .3s;
     filter: drop-shadow(0 2px 3px rgba(0,0,0,.6));
   }
-  .peg.moving { transform: translate(-50%, -60%) scale(1.12); }
-  .peg.you { background-image: url('peg_brass_top.jpg'); background-size: 205% auto; background-position: 50% 40.6%; }
-  .peg.grok { background-image: url('peg_steel_top.jpg'); background-size: 170% auto; background-position: 50% 45.8%; }
+  .peg.moving { z-index: 6; opacity: 1; filter: drop-shadow(0 6px 6px rgba(0,0,0,.55)); }
+  .peg-pop { position: absolute; z-index: 7; transform: translate(-50%, -130%); font-weight: 800; font-size: .9rem; padding: 1px 7px; border-radius: 10px; pointer-events: none; white-space: nowrap; animation: pegpop 1.4s ease-out forwards; box-shadow: 0 2px 6px rgba(0,0,0,.6); }
+  .peg-pop.you { background: #f0d78c; color: #2a1c05; } .peg-pop.grok { background: #c9ced4; color: #15181b; }
+  @keyframes pegpop { 0% { opacity: 0; margin-top: 6px; } 15% { opacity: 1; margin-top: 0; } 75% { opacity: 1; } 100% { opacity: 0; margin-top: -14px; } }
+  /* Each peg has a drawn disc underneath the photo, so it still shows if the JPG is missing. */
+  .peg.you { background-image: url('peg_brass_top.jpg'), radial-gradient(circle at 38% 35%, #fff3b8, #d4a83a 45%, #7a5a14 100%); background-size: 205% auto, 100% 100%; background-position: 50% 40.6%, center; }
+  .peg.grok { background-image: url('peg_steel_top.jpg'), radial-gradient(circle at 38% 35%, #d9dde2, #5b6168 50%, #1d2024 100%); background-size: 170% auto, 100% 100%; background-position: 50% 45.8%, center; }
   .opp { display: flex; gap: 4px; justify-content: center; margin: 4px 0; min-height: 44px; align-items: center; }
   .opp .card { width: 30px; height: 44px; font-size: .6rem; cursor: default; }
   .opp .card:hover { transform: none; }
@@ -46,7 +51,7 @@
   .card:hover { transform: translateY(-10px); }
   .card.sel { outline: 3px solid #f0d78c; transform: translateY(-12px); }
   .card.playable { box-shadow: 0 0 0 2px #8fd3f4; }
-  .card.back { background: url('card_back.jpg') center/cover; color: transparent; }
+  .card.back { background: url('card_back.jpg') center/cover, repeating-linear-gradient(45deg, #1f4d2e 0 6px, #173a23 6px 12px); border: 2px solid #f0d78c55; color: transparent; }
   .card .r { font-size: 1.2rem; } .card .s { font-size: 1.4rem; }
   .card.red { color: #c0392b; } .card.black { color: #1a1a1a; }
   .msg { background: rgba(0,0,0,.55); border-radius: 12px; padding: 14px 16px; text-align: center; margin: 16px 0; font-size: 1.02rem; }
@@ -267,20 +272,58 @@ function pos(score, isGrok) {
   return { left: p[0] + '%', top: p[1] + '%' };
 }
 
-function animatePeg(pegEl, target) {
-  if (pegEl.style.left === target.left && pegEl.style.top === target.top) return;
-  pegEl.classList.add('moving');
-  pegEl.style.left = target.left;
-  pegEl.style.top = target.top;
-  setTimeout(() => pegEl.classList.remove('moving'), 480);
+/* Two pegs per player, as on a real board. st.pegs[who] holds the hole of each peg element.
+   On a score only the back peg moves: it is lifted and carried hole by hole past the
+   front peg, which stays put and becomes the new back peg. */
+const pegEls = () => ({ player: [el.pYou, el.pYouB], grok: [el.pGrok, el.pGrokB] });
+
+function markBackPeg(who) {
+  const [a, b] = st.pegs[who], els = pegEls()[who];
+  const back = a < b ? 0 : a > b ? 1 : 1;
+  els.forEach((p, i) => p.classList.toggle('backpeg', i === back));
 }
 
-// Two pegs each: the front peg marks the score, the back peg the previous score (leapfrog).
-function updatePegs() {
-  animatePeg(el.pYou, pos(st.scores.player, false));
-  animatePeg(el.pGrok, pos(st.scores.grok, true));
-  animatePeg(el.pYouB, pos(st.back.player, false));
-  animatePeg(el.pGrokB, pos(st.back.grok, true));
+// Put every peg straight onto its hole (new game, board change).
+function placePegs() {
+  const E = pegEls();
+  for (const who of ['player', 'grok']) {
+    E[who].forEach((p, i) => {
+      p.getAnimations().forEach(a => a.cancel());
+      p.classList.remove('moving');
+      const t = pos(st.pegs[who][i], who === 'grok');
+      p.style.left = t.left; p.style.top = t.top;
+    });
+    markBackPeg(who);
+  }
+  el.boardWrap.querySelectorAll('.peg-pop').forEach(n => n.remove());
+}
+
+function movePeg(who, idx, from, to, pts) {
+  const p = pegEls()[who][idx], isG = who === 'grok';
+  p.getAnimations().forEach(a => a.cancel());
+  const frames = [];
+  for (let s = from; s <= to; s++) frames.push(pos(s, isG));
+  if (frames.length < 2) frames.unshift(frames[0]);
+  const n = frames.length - 1;
+  const kf = frames.map((f, i) => {
+    const o = i / n, lift = Math.sin(Math.PI * o);
+    return { left: f.left, top: f.top, offset: o, transform: `translate(-50%, ${-50 - 35 * lift}%) scale(${1 + .35 * lift})` };
+  });
+  const end = frames[n];
+  p.style.left = end.left; p.style.top = end.top;
+  p.classList.add('moving');
+  const dur = Math.min(1500, 380 + 75 * (to - from));
+  const anim = p.animate(kf, { duration: dur, easing: 'ease-in-out' });
+  anim.onfinish = () => p.classList.remove('moving');
+  // Points badge where the peg lands.
+  const pop = document.createElement('div');
+  pop.className = 'peg-pop ' + (isG ? 'grok' : 'you');
+  pop.textContent = '+' + pts;
+  pop.style.left = end.left; pop.style.top = end.top;
+  pop.style.animationDelay = (dur * .6) + 'ms';
+  pop.style.opacity = 0;
+  el.boardWrap.appendChild(pop);
+  setTimeout(() => pop.remove(), dur * .6 + 1500);
 }
 
 function flashScore(who, pts) {
@@ -302,8 +345,13 @@ function say(text) {
 // Returns true if the game ended.
 function addPts(who, pts, reason) {
   if (!pts || st.phase === 'over') return st.phase === 'over';
-  st.back[who] = st.scores[who];
+  const pg = st.pegs[who];
+  const idx = pg[0] < pg[1] ? 0 : 1;   // the back peg leapfrogs
+  const from = pg[idx];
   st.scores[who] = Math.min(WIN, st.scores[who] + pts);
+  pg[idx] = st.scores[who];
+  markBackPeg(who);
+  movePeg(who, idx, from, st.scores[who], pts);
   say(who2(who) + ' score' + (who==='grok'?'s ':' ') + pts + (reason ? ' (' + reason + ')' : '') + '.');
   flashScore(who, pts);
   sfx.peg(pts);
@@ -404,8 +452,9 @@ function deal() {
 }
 
 function newGame() {
-  st = { scores: { player: 0, grok: 0 }, back: { player: 0, grok: 0 }, dealer: null };
+  st = { scores: { player: 0, grok: 0 }, pegs: { player: [0, 0], grok: [0, 0] }, dealer: null };
   log.length = 0;
+  placePegs();
   deal();
 }
 
@@ -618,7 +667,6 @@ function render() {
   el.discard.style.display = st.phase === 'discard' ? '' : 'none';
   el.discard.disabled = sel.size !== 2;
   el.hint.disabled = !(st.phase === 'discard' || (st.phase === 'peg' && st.turn === 'player'));
-  updatePegs();
 }
 
 function onSelect(c, elCard) {
@@ -628,11 +676,45 @@ function onSelect(c, elCard) {
   el.discard.disabled = sel.size !== 2;
 }
 
+// If a board JPG can't be loaded (e.g. index.html opened away from its images), draw a
+// stand-in board from the same hole geometry the pegs use, so the game stays playable.
+function fallbackBoard(file) {
+  const b = BOARDS[file];
+  const W = b.wide ? 1168 : 784, H = b.wide ? 784 : 1168;
+  const hole = (x, y, r = 5) => `<circle cx="${x*W/100}" cy="${y*H/100}" r="${r}" fill="#140b05"/>`;
+  let holes = '';
+  for (const g of [false, true]) {
+    const lane = g ? b.grok : b.you;
+    for (let s = 1; s <= 120; s++) {
+      const t = lane[Math.floor((s-1) / HOLES_PER_TRACK)];
+      const p = along(t, ((s-1) % HOLES_PER_TRACK) / (HOLES_PER_TRACK - 1));
+      holes += hole(p[0], p[1]);
+    }
+    holes += hole(...b.start[g ? 1 : 0], 7);
+  }
+  holes += hole(...b.finish, 8);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">
+    <defs><linearGradient id="w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b4226"/><stop offset="1" stop-color="#3d2414"/></linearGradient></defs>
+    <rect width="${W}" height="${H}" fill="#1c3a26"/>
+    <rect x="${W*.04}" y="${H*.04}" width="${W*.92}" height="${H*.92}" rx="36" fill="url(#w)" stroke="#d4af37" stroke-opacity=".5" stroke-width="4"/>
+    ${holes}</svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+let warnedImages = false;
+el.board.onerror = () => {
+  if (el.board.src.startsWith('data:')) return;
+  el.board.src = fallbackBoard(el.boardSel.value);
+  if (!warnedImages) { warnedImages = true; say('Board images not found — keep index.html in the same folder as the .jpg files. Using a drawn board for now.'); }
+};
+
 function applyBoard() {
   el.board.src = el.boardSel.value;
   el.boardWrap.classList.toggle('wide', !!BOARDS[el.boardSel.value].wide);
   store.set('board', el.boardSel.value);
-  updatePegs();
+  // Catch a failure that happened before the error handler was attached.
+  if (el.board.complete && !el.board.naturalWidth) el.board.onerror();
+  // Place pegs instantly on a board change instead of sliding them across from the old layout.
+  placePegs();
 }
 el.boardSel.onchange = applyBoard;
 $('newH').onclick = () => { if (st.phase === 'over') newGame(); else deal(); };

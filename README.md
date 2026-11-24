@@ -27,7 +27,7 @@ Open `index.html` in a browser. All images must be in the same folder.
 - Hand and crib scoring: fifteens, pairs, runs, flushes, nobs, his heels
 - Grok picks discards and plays using simple scoring heuristics
 - Board selector; pegs follow each board's own tracks, one lane per player
-- Two animated metal pegs per player that leapfrog, like a real board
+- Two metal pegs per player that leapfrog like a real board: on each score the back peg hops hole by hole past the front peg, with a "+N" badge where it lands
 - The show is counted hand by hand, with each card combination and its points listed
 - Hint button: best discard (by expected hand value) and best pegging play
 - Synthesised sound effects with an on/off toggle
